@@ -3,6 +3,7 @@
     xmlns:xacro="http://ros.org/wiki/xacro" name="robot">
     <xacro:property name="wheel_base" value="0.15" />
     <xacro:property name="wheel_radius" value="0.02" />
+    <xacro:property name="wheel_thickness" value="0.02" />
     <xacro:property name="camera_angle" value="${-20.0*pi/180.0}" />
     <xacro:property name="camera_extrinsic" value="0.02" />
     <link name="world"></link>
@@ -12,12 +13,98 @@
         <origin xyz="0 0 0" rpy="0 0 0"/>
     </joint>
     <!-- Root Link of Robot -->
-    <link name="base_link"></link>
-    <link name="left_wheel"></link>
-    <link name="right_wheel"></link>
-    <link name="camera_mount_base"></link>
+    <link name="base_link">
+        <visual>
+            <origin xyz="0.03 0 0.03" rpy="0 0 0" />
+            <geometry>
+                <box size="0.08 ${wheel_base-wheel_thickness-0.01} 0.02" />
+            </geometry>
+            <material name="Red">
+                <color rgba="1.0 0 0 1.0"/>
+            </material>
+        </visual>
+        <visual>
+            <origin xyz="0.07 0 0.03" rpy="0 0 0" />
+            <geometry>
+                <box size="0.08 0.07 0.02" />
+            </geometry>
+            <material name="Red">
+                <color rgba="1.0 0 0 1.0"/>
+            </material>
+        </visual>
+        <visual>
+            <origin xyz="0.10 0 0.0025" rpy="0 0 0" />
+            <geometry>
+                <cylinder radius="0.01" length="0.005" />
+            </geometry>
+            <material name="Grey">
+                <color rgba="0.4 0.4 0.4 1.0"/>
+            </material>
+        </visual>
+        <visual>
+            <origin xyz="0.10 0 0.015" rpy="0 0 0" />
+            <geometry>
+                <cylinder radius="0.003" length="0.03" />
+            </geometry>
+            <material name="Grey">
+                <color rgba="0.4 0.4 0.4 1.0"/>
+            </material>
+        </visual>
+    </link>
+    <link name="left_wheel">
+        <visual>
+            <origin rpy="${pi/2.0} 0 0" />
+            <geometry>
+                <cylinder radius="${wheel_radius}" length="${wheel_thickness}" />
+            </geometry>
+            <material name="Cyan">
+                <color rgba="0 1.0 1.0 1.0"/>
+            </material>
+        </visual>
+    </link>
+    <link name="right_wheel">
+        <visual>
+            <origin rpy="${pi/2.0} 0 0" />
+            <geometry>
+                <cylinder radius="${wheel_radius}" length="${wheel_thickness}" />
+            </geometry>
+            <material name="Cyan">
+                <color rgba="0 1.0 1.0 1.0"/>
+            </material>
+        </visual>
+    </link>
+    <link name="camera_mount_base">
+        <visual>
+            <origin xyz="0.00 0 0.03" rpy="0 0 0" />
+            <geometry>
+                <box size="0.005 0.01 0.06" />
+            </geometry>
+            <material name="Red">
+                <color rgba="1.0 0 0 1.0"/>
+            </material>
+        </visual>
+    </link>
     <link name="camera_base"></link>
-    <link name="camera"></link>
+    <link name="camera">
+        <visual>
+            <origin xyz="0.00 0 -${camera_extrinsic/2.0}" rpy="0 0 0" />
+            <geometry>
+                <box size="0.025 0.025 0.01" />
+            </geometry>
+            <material name="Black">
+                <color rgba="0.2 0.2 0.2 1.0"/>
+            </material>
+        </visual>
+        <visual>
+            <origin xyz="0 0 -0.0025" rpy="0 0 0" />
+            <geometry>
+                <cylinder radius="0.005" length="0.005" />
+            </geometry>
+            <material name="Green">
+                <color rgba="0 1 0 1.0"/>
+            </material>
+        </visual>
+    </link>
     <!--joints -->
     <joint name="left_wheel_joint" type="fixed">
         <parent link="base_link"/>
@@ -34,7 +121,7 @@
         <child link="camera_mount_base"/>
         <origin xyz="0.0 0.0 0.04" rpy="0 ${camera_angle} 0" />
     </joint>
-    <joint name="camera__base_joint" type="fixed">
+    <joint name="camera_base_joint" type="fixed">
         <parent link="camera_mount_base"/>
         <child link="camera_base"/>
         <origin xyz="0.0 0.0 0.06" rpy="0 -${pi/2.0} 0" />
