@@ -5,20 +5,17 @@ import socket
 import numpy as np
 
 
-# Helper Functions
-
 # Fill the buffer with all incoming data
 def fill_buffer(s, size):
     buf = b''
-    # Recieve until buffer is full
+    # Receive until buffer is full
     while len(buf) < size:
         received_data = s.recv(size)
         buf += received_data
     return buf
 
 
-# PiBot Class
-class PiBot:
+class SerialController(object):
     def __init__(self, address):
         # Robot Address
         self.IP_ADDRESS = address
@@ -47,7 +44,7 @@ class PiBot:
         # Image details
         self.IM_WIDTH = 320
         self.IM_HEIGHT = 240
-        self.IMAGE_SIZE = self.IM_WIDTH * self.IM_HEIGHT * 3;
+        self.IMAGE_SIZE = self.IM_WIDTH * self.IM_HEIGHT * 3
 
     # Create the required socket, input port number
     def create_socket(self, port):
@@ -59,7 +56,7 @@ class PiBot:
         return s
 
     # Set the robot's motor speeds, input tuple (A, B)
-    def setMotorSpeeds(self, A, B, T=0):
+    def set_motor_speeds(self, A, B, T=0):
         # Create the socket
         self.motor_socket = self.create_socket(self.PORT_MOTORS)
 
@@ -76,7 +73,7 @@ class PiBot:
         self.motor_socket.close()
 
     # Get the robot's motor ticks, output tuple (A, B)
-    def getMotorTicks(self):
+    def get_motor_ticks(self):
         # Create the socket
         self.motor_socket = self.create_socket(self.PORT_MOTORS)
 
@@ -105,7 +102,7 @@ class PiBot:
         return ticks
 
     # Get an image from the camera
-    def getImageFromCamera(self):
+    def get_image_from_camera(self):
         # Create socket for images and connect
         self.camera_socket = self.create_socket(self.PORT_CAMERAS)
 
@@ -136,7 +133,7 @@ class PiBot:
 
     # Stop the motors
     def stop(self):
-        self.setMotorSpeeds(0, 0)
+        self.set_motor_speeds(0, 0)
 
     # Reset: stop motors, reset encoders
     # Not functional - just replicating MATLAB code
