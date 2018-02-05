@@ -1,17 +1,47 @@
 <?xml version="1.0"?>
-<robot name="robot">
-
-    <link name="world">
-    </link>
-
+<robot 
+    xmlns:xacro="http://ros.org/wiki/xacro" name="robot">
+    <xacro:property name="wheel_base" value="0.15" />
+    <xacro:property name="wheel_radius" value="0.02" />
+    <xacro:property name="camera_angle" value="${-20.0*pi/180.0}" />
+    <xacro:property name="camera_extrinsic" value="0.02" />
+    <link name="world"></link>
     <joint name="world_link" type="floating">
         <parent link="world"/>
         <child link="base_link"/>
         <origin xyz="0 0 0" rpy="0 0 0"/>
     </joint>
-
     <!-- Root Link of Robot -->
-    <link name="base_link">
-    </link>
-
+    <link name="base_link"></link>
+    <link name="left_wheel"></link>
+    <link name="right_wheel"></link>
+    <link name="camera_mount_base"></link>
+    <link name="camera_base"></link>
+    <link name="camera"></link>
+    <!--joints -->
+    <joint name="left_wheel_joint" type="fixed">
+        <parent link="base_link"/>
+        <child link="left_wheel"/>
+        <origin xyz="0.0 ${wheel_base/2.0} ${wheel_radius}" rpy="0 0 0"/>
+    </joint>
+    <joint name="right_wheel_joint" type="fixed">
+        <parent link="base_link"/>
+        <child link="right_wheel"/>
+        <origin xyz="0.0 -${wheel_base/2.0} ${wheel_radius}" rpy="0 0 0"/>
+    </joint>
+    <joint name="camera_mount_base_joint" type="fixed">
+        <parent link="base_link"/>
+        <child link="camera_mount_base"/>
+        <origin xyz="0.0 0.0 0.04" rpy="0 ${camera_angle} 0" />
+    </joint>
+    <joint name="camera__base_joint" type="fixed">
+        <parent link="camera_mount_base"/>
+        <child link="camera_base"/>
+        <origin xyz="0.0 0.0 0.06" rpy="0 -${pi/2.0} 0" />
+    </joint>
+    <joint name="camera_link" type="fixed">
+        <parent link="camera_base"/>
+        <child link="camera"/>
+        <origin xyz="0 0 ${camera_extrinsic}" rpy="0 0 ${pi/2.0}"/>
+    </joint>
 </robot>

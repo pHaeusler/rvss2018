@@ -2,14 +2,13 @@
 <launch>
     <!-- Parameters -->
     <arg name="host" default="10.0.0.35"/>
-
     <!-- PiBot Driver -->
-    <node name="pibot" pkg="pibot" type="robot.py" respawn="true">
-        <param name="host" value="$(arg host)"/>
-    </node>
-
+    <!--<node name="pibot" pkg="pibot" type="robot.py" respawn="true"><param name="host" value="$(arg host)"/></node>-->
     <!-- URDF -->
-    <param name="robot_description"
-           command="$(find xacro)/xacro --inorder '$(find pibot)/urdf/robot.xacro'"/>
-
+    <param name="robot_description" command="$(find xacro)/xacro --inorder '$(find pibot)/urdf/robot.xacro'"/>
+    <!-- Robot State Publisher -->
+    <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" respawn="true">
+        <param name="publish_frequency" value="50"/>
+        <param name="use_tf_static" value="true"/>
+    </node>
 </launch>
