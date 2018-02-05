@@ -71,11 +71,11 @@ class SerialController(object):
 
             if T != 0:
                 # Put together the command and send
-                command = "%s,%s,%s,%s,%s" % (self.FN_MOTOR_SPEEDS_PROFILE, str(A), str(B), str(T), str(0))
+                command = "%s,%s,%s,%s,%s" % (self.FN_MOTOR_SPEEDS_PROFILE, str(int(A)), str(int(B)), str(T), str(0))
                 motor_socket.sendall(command.encode("utf-8"))
 
             else:
-                command = "%s,%s,%s" % (self.FN_MOTOR_SPEEDS, str(A), str(B))
+                command = "%s,%s,%s" % (self.FN_MOTOR_SPEEDS, str(int(A)), str(int(B)))
                 motor_socket.sendall(command.encode("utf-8"))
 
             # Close the socket

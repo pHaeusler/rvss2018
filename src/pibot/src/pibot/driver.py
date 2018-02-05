@@ -4,14 +4,13 @@ import threading
 
 import math3d
 import rospy
+from cv_bridge import CvBridge
 from geometry_msgs.msg import TransformStamped, Transform
 from geometry_msgs.msg import TwistWithCovariance, PoseWithCovariance, Pose, Point, Quaternion, Twist, Vector3
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import Image
 from std_msgs.msg import Header
 from tf2_ros import TransformBroadcaster
-
-from cv_bridge import CvBridge
 
 from pibot.serial_connection import SerialController
 
@@ -39,9 +38,10 @@ class PiBotDriver(object):
             address=host
         )
 
-        self.__wheel_radius = 0.02
-        self.__wheel_distance = 0.1
-        self.__ticks_per_meter = 1000
+        self.__wheel_radius = 0.065 / 2.0
+        self.__wheel_distance = 0.18
+        self.__tick_per_revolution = 360
+        self.__ticks_per_meter = self.__tick_per_revolution / (self.__wheel_radius * 2 * math.pi)
 
         self.__image_freq = 1
         self.__odom_freq = 10
@@ -72,17 +72,20 @@ class PiBotDriver(object):
         self.__odom_thread = threading.Thread(target=self.__odom_loop)
         self.__image_thread = threading.Thread(target=self.__image_loop)
 
-        #self.__odom_thread.start()
-        #self.__image_thread.start()
+        self.__odom_thread.start()
+        self.__image_thread.start()
 
     def __cmd_vel_callback(self, msg):
         # type: (Twist) -> None
         logger.info('Received cmd vel: {}'.format(msg))
-        speed_l = (msg.linear.x - msg.angular.z * self.__wheel_distance / 2) * self.__wheel_radius
-        speed_r = (msg.linear.x + msg.angular.z * self.__wheel_distance / 2) * self.__wheel_radius
+        speed_l = (msg.linear.x - msg.angular.z * self.__wheel_distance / 2) * self.__ticks_per_meter
+        speed_r = (msg.linear.x + msg.angular.z * self.__wheel_distance / 2) * self.__ticks_per_meter
+
+        logger.info('Velocity CMD: {} {}'.format(speed_l, speed_r))
+
         self.__pibot.set_motor_speeds(
-            A=200,
-            B=200
+            A=int(-speed_l),
+            B=int(-speed_r)
         )
 
     def __odom_loop(self):
@@ -90,16 +93,14 @@ class PiBotDriver(object):
         prev_t = rospy.Time.now()
         while not rospy.is_shutdown():
 
-            logger.info('Updating odom')
-
             # Get the delta time
             t = rospy.Time.now()
             dt = (t - prev_t).to_sec()
 
             # Get the motor ticks
-            logger.info('Getting encoder ticks...')
+            logger.debug('Getting encoder ticks...')
             lw_ticks, rw_ticks = self.__pibot.get_motor_ticks()
-            logger.info('Got encoder ticks: {} {}'.format(lw_ticks, rw_ticks))
+            logger.debug('Got encoder ticks: {} {}'.format(lw_ticks, rw_ticks))
 
             d_lw_ticks = self.__lw_ticks - lw_ticks
             d_rw_ticks = self.__rw_ticks - rw_ticks
@@ -109,14 +110,14 @@ class PiBotDriver(object):
             left_travel = d_lw_ticks / self.__ticks_per_meter
             right_travel = d_rw_ticks / self.__ticks_per_meter
 
-            logger.info('left_travel: {}'.format(left_travel))
-            logger.info('right_travel: {}'.format(right_travel))
+            logger.debug('left_travel: {}'.format(left_travel))
+            logger.debug('right_travel: {}'.format(right_travel))
 
             delta_travel = (left_travel + right_travel) / 2
             delta_theta = (right_travel - left_travel) / self.__wheel_distance
 
-            logger.info('delta_travel: {}'.format(delta_travel))
-            logger.info('delta_theta: {}'.format(delta_theta))
+            logger.debug('delta_travel: {}'.format(delta_travel))
+            logger.debug('delta_theta: {}'.format(delta_theta))
 
             if right_travel == left_travel:
                 delta_x = left_travel * math.cos(self.__w)
