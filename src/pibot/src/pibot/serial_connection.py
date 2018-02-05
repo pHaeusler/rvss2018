@@ -1,6 +1,7 @@
 import io
 import re
 import socket
+import logger
 
 import numpy as np
 
@@ -81,10 +82,10 @@ class SerialController(object):
         command = self.FN_MOTOR_TICKS + self.FN_ARG_SEPARATOR + 'A'
         self.motor_socket.sendall(command.encode("utf-8"))
 
-        # Recieve ticks
+        # Receive ticks
         recv_data = self.motor_socket.recv(self.CHUNK_SIZE)
         raw_data = recv_data
-        # Ensure that data is recieved
+        # Ensure that data is received
         while not recv_data:
             recv_data = self.motor_socket.recv(self.CHUNK_SIZE)
             raw_data += recv_data

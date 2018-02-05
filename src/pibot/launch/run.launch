@@ -1,0 +1,15 @@
+<?xml version="1.0" ?>
+<launch>
+    <!-- Parameters -->
+    <arg name="host" default="10.0.0.20"/>
+
+    <!-- PiBot Driver -->
+    <node name="pibot" pkg="pibot" type="robot.py" respawn="true">
+        <param name="host" value="$(arg host)"/>
+    </node>
+
+    <!-- URDF -->
+    <param name="robot_description"
+           command="$(find xacro)/xacro --inorder '$(find pibot)/urdf/robot.xacro'"/>
+
+</launch>
