@@ -1,9 +1,12 @@
 import io
+import logging
 import re
 import socket
-import logger
+import threading
 
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 
 # Fill the buffer with all incoming data
@@ -47,60 +50,67 @@ class SerialController(object):
         self.IM_HEIGHT = 240
         self.IMAGE_SIZE = self.IM_WIDTH * self.IM_HEIGHT * 3
 
+        self.__motor_socket_cond = threading.Condition()
+
     # Create the required socket, input port number
     def create_socket(self, port):
         # Set up a socket with the specified port
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         address = (self.IP_ADDRESS, port)
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        # s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         s.connect(address)
         return s
 
     # Set the robot's motor speeds, input tuple (A, B)
     def set_motor_speeds(self, A, B, T=0):
-        # Create the socket
-        self.motor_socket = self.create_socket(self.PORT_MOTORS)
 
-        if T != 0:
-            # Put together the command and send
-            command = "%s,%s,%s,%s,%s" % (self.FN_MOTOR_SPEEDS_PROFILE, str(A), str(B), str(T), str(0))
-            self.motor_socket.sendall(command.encode("utf-8"))
+        with self.__motor_socket_cond:
 
-        else:
-            command = "%s,%s,%s" % (self.FN_MOTOR_SPEEDS, str(A), str(B))
-            self.motor_socket.sendall(command.encode("utf-8"))
+            # Create the socket
+            motor_socket = self.create_socket(self.PORT_MOTORS)
 
-        # Close the socket
-        self.motor_socket.close()
+            if T != 0:
+                # Put together the command and send
+                command = "%s,%s,%s,%s,%s" % (self.FN_MOTOR_SPEEDS_PROFILE, str(A), str(B), str(T), str(0))
+                motor_socket.sendall(command.encode("utf-8"))
+
+            else:
+                command = "%s,%s,%s" % (self.FN_MOTOR_SPEEDS, str(A), str(B))
+                motor_socket.sendall(command.encode("utf-8"))
+
+            # Close the socket
+            motor_socket.close()
 
     # Get the robot's motor ticks, output tuple (A, B)
     def get_motor_ticks(self):
-        # Create the socket
-        self.motor_socket = self.create_socket(self.PORT_MOTORS)
 
-        # Put together the command and send
-        command = self.FN_MOTOR_TICKS + self.FN_ARG_SEPARATOR + 'A'
-        self.motor_socket.sendall(command.encode("utf-8"))
+        with self.__motor_socket_cond:
+            # Create the socket
+            motor_socket = self.create_socket(self.PORT_MOTORS)
 
-        # Receive ticks
-        recv_data = self.motor_socket.recv(self.CHUNK_SIZE)
-        raw_data = recv_data
-        # Ensure that data is received
-        while not recv_data:
-            recv_data = self.motor_socket.recv(self.CHUNK_SIZE)
-            raw_data += recv_data
+            # Put together the command and send
+            command = self.FN_MOTOR_TICKS + self.FN_ARG_SEPARATOR + 'A'
+            motor_socket.sendall(command.encode("utf-8"))
 
-        # Decode bytes
-        str_data = raw_data.decode("utf-8")
-        # Regex to convert string to array of numbers
-        ticks_list = re.findall('-*[0-9]+', str_data)
-        # Convert strings to floats
-        ticks = [float(tick) for tick in ticks_list]
+            # Receive ticks
+            recv_data = motor_socket.recv(self.CHUNK_SIZE)
+            raw_data = recv_data
+            # Ensure that data is received
+            while not recv_data:
+                recv_data = motor_socket.recv(self.CHUNK_SIZE)
+                raw_data += recv_data
 
-        # Close the socket
-        self.motor_socket.close()
+            # Decode bytes
+            str_data = raw_data.decode("utf-8")
+            # Regex to convert string to array of numbers
+            ticks_list = re.findall('-*[0-9]+', str_data)
+            # Convert strings to floats
+            ticks = [float(tick) for tick in ticks_list]
 
-        return ticks
+            # Close the socket
+            motor_socket.close()
+
+            return ticks
 
     # Get an image from the camera
     def get_image_from_camera(self):
@@ -139,10 +149,10 @@ class SerialController(object):
     # Reset: stop motors, reset encoders
     # Not functional - just replicating MATLAB code
     def reset(self):
-        self.motor_socket = self.create_socket(self.PORT_MOTORS)
+        motor_socket = self.create_socket(self.PORT_MOTORS)
 
         command = self.FN_ALL_STOP
 
-        self.motor_socket.sendall(command.encode('utf-8'))
+        motor_socket.sendall(command.encode('utf-8'))
 
-        self.motor_socket.close()
+        motor_socket.close()

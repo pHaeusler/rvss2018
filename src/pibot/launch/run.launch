@@ -1,7 +1,7 @@
 <?xml version="1.0" ?>
 <launch>
     <!-- Parameters -->
-    <arg name="host" default="10.0.0.20"/>
+    <arg name="host" default="10.0.0.35"/>
 
     <!-- PiBot Driver -->
     <node name="pibot" pkg="pibot" type="robot.py" respawn="true">

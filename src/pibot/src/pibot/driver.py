@@ -1,14 +1,17 @@
+import logging
 import math
 import threading
-import logging
 
 import math3d
 import rospy
+from geometry_msgs.msg import TransformStamped, Transform
 from geometry_msgs.msg import TwistWithCovariance, PoseWithCovariance, Pose, Point, Quaternion, Twist, Vector3
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import Image
 from std_msgs.msg import Header
 from tf2_ros import TransformBroadcaster
+
+from cv_bridge import CvBridge
 
 from pibot.serial_connection import SerialController
 
@@ -17,6 +20,7 @@ logger = logging.getLogger(__name__)
 
 class PiBotDriver(object):
     def __init__(self, host='10.0.0.1'):
+
         self.__odom_pub = rospy.Publisher(
             name='/odom',
             data_class=Odometry,
@@ -28,6 +32,9 @@ class PiBotDriver(object):
             queue_size=100
         )
 
+        self.__cv_bridge = CvBridge()
+
+        logger.info('Connecting to robot...')
         self.__pibot = SerialController(
             address=host
         )
@@ -36,7 +43,7 @@ class PiBotDriver(object):
         self.__wheel_distance = 0.1
         self.__ticks_per_meter = 1000
 
-        self.__image_freq = 5
+        self.__image_freq = 1
         self.__odom_freq = 10
 
         # These are accumulated
@@ -53,9 +60,6 @@ class PiBotDriver(object):
         self.__dy = 0
         self.__dw = 0
 
-        self.__odom_thread = threading.Thread(target=self.__odom_loop)
-        # self.__image_thread = threading.Thread(target=self.__image_loop)
-
         self.__cmd_vel_sub = rospy.Subscriber(
             name='/cmd_vel',
             data_class=Twist,
@@ -64,14 +68,21 @@ class PiBotDriver(object):
 
         self.__transform_broadcaster = TransformBroadcaster()
 
+        logger.info('Starting threads...')
+        self.__odom_thread = threading.Thread(target=self.__odom_loop)
+        self.__image_thread = threading.Thread(target=self.__image_loop)
+
+        #self.__odom_thread.start()
+        #self.__image_thread.start()
+
     def __cmd_vel_callback(self, msg):
         # type: (Twist) -> None
         logger.info('Received cmd vel: {}'.format(msg))
         speed_l = (msg.linear.x - msg.angular.z * self.__wheel_distance / 2) * self.__wheel_radius
         speed_r = (msg.linear.x + msg.angular.z * self.__wheel_distance / 2) * self.__wheel_radius
         self.__pibot.set_motor_speeds(
-            A=speed_l,
-            B=speed_r
+            A=200,
+            B=200
         )
 
     def __odom_loop(self):
@@ -83,19 +94,29 @@ class PiBotDriver(object):
 
             # Get the delta time
             t = rospy.Time.now()
-            dt = t - prev_t
+            dt = (t - prev_t).to_sec()
 
             # Get the motor ticks
+            logger.info('Getting encoder ticks...')
             lw_ticks, rw_ticks = self.__pibot.get_motor_ticks()
+            logger.info('Got encoder ticks: {} {}'.format(lw_ticks, rw_ticks))
 
             d_lw_ticks = self.__lw_ticks - lw_ticks
             d_rw_ticks = self.__rw_ticks - rw_ticks
+            self.__lw_ticks = lw_ticks
+            self.__rw_ticks = rw_ticks
 
             left_travel = d_lw_ticks / self.__ticks_per_meter
             right_travel = d_rw_ticks / self.__ticks_per_meter
 
+            logger.info('left_travel: {}'.format(left_travel))
+            logger.info('right_travel: {}'.format(right_travel))
+
             delta_travel = (left_travel + right_travel) / 2
             delta_theta = (right_travel - left_travel) / self.__wheel_distance
+
+            logger.info('delta_travel: {}'.format(delta_travel))
+            logger.info('delta_theta: {}'.format(delta_theta))
 
             if right_travel == left_travel:
                 delta_x = left_travel * math.cos(self.__w)
@@ -114,7 +135,7 @@ class PiBotDriver(object):
 
             self.__x += delta_x
             self.__y += delta_y
-            self.__w = (self.__w + dt) % (2 * math.pi)
+            self.__w = (self.__w + delta_theta) % (2 * math.pi)
             self.__dx = delta_travel / dt
             self.__dy = 0
             self.__dw = delta_theta / dt
@@ -137,7 +158,7 @@ class PiBotDriver(object):
                             x=qt.x,
                             y=qt.y,
                             z=qt.z,
-                            w=qt.w
+                            w=qt.s
                         )
                     ),
                     covariance=[0.01, 0.01, 0.0, 0.0, 0.0, 0.0,
@@ -169,6 +190,24 @@ class PiBotDriver(object):
                 )
             )
             self.__odom_pub.publish(odom)
+
+            #
+            # Publish TF
+            #
+            transform = TransformStamped(
+                header=odom.header,
+                child_frame_id=odom.child_frame_id,
+                transform=Transform(
+                    translation=Vector3(
+                        odom.pose.pose.position.x,
+                        odom.pose.pose.position.y,
+                        odom.pose.pose.position.z
+                    ),
+                    rotation=odom.pose.pose.orientation
+                )
+            )
+            self.__transform_broadcaster.sendTransform(transform=transform)
+
             rate.sleep()
             prev_t = t
 
@@ -176,5 +215,6 @@ class PiBotDriver(object):
         rate = rospy.Rate(self.__image_freq)
         while not rospy.is_shutdown():
             im = self.__pibot.get_image_from_camera()
-            self.__image_pub.publish(im)
+            im_msg = self.__cv_bridge.cv2_to_imgmsg(cvim=im, encoding='bgr8')
+            self.__image_pub.publish(im_msg)
             rate.sleep()
